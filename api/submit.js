@@ -47,6 +47,9 @@ export default async function handler(req, res) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
+        // typecast lets Airtable match or create select options, so a small
+        // wording drift between the form and the base can't lose a lead.
+        typecast: true,
         fields: {
           Name: data.name,
           Phone: data.phone,
