@@ -234,6 +234,18 @@
         <textarea id="details" name="details" required></textarea>
       </div>
 
+      <div class="field">
+        <label for="photos">Photos of the area (optional)</label>
+        <input id="photos" name="photos" type="file" accept="image/*" multiple>
+        <span class="hint">Up to 4. A picture of the problem often saves a trip.</span>
+        <span class="hint" id="photo-status"></span>
+      </div>
+
+      <div class="hp" aria-hidden="true">
+        <label for="website">Leave this empty</label>
+        <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
+      </div>
+
       <div>
         <button class="btn btn-primary" type="submit">Send my request</button>
         <p class="form-status" id="form-status" role="status"></p>
@@ -245,7 +257,7 @@
       <a class="bignum" href="tel:+19377260254">(937) 726-0254</a>
 
       <h3>Photos help</h3>
-      <p class="prose">Email them to glennhomeimprovement@gmail.com after you send this. A picture of the problem often saves a site visit.</p>
+      <p class="prose">Attach them to the form, or email them to glennhomeimprovement@gmail.com. A picture of the problem often saves a site visit.</p>
 
       <h3>What happens next</h3>
       <p class="prose">We answer every request. If you haven't heard back within two business days, call.</p>
@@ -275,30 +287,96 @@
 <div class="callbar"><a href="tel:+19377260254">Call (937) 726-0254</a></div>
 
 <script>
-  // Point this at the n8n webhook when the intake system is ready.
-  const FORM_ENDPOINT = "";
-
   const form = document.getElementById("estimate-form");
   const status = document.getElementById("form-status");
+  const photoInput = document.getElementById("photos");
+  const photoStatus = document.getElementById("photo-status");
+
+  const MAX_PHOTOS = 4;
+  const MAX_EDGE = 1600;   // px on the long edge after resize
+  const QUALITY = 0.82;
+
+  // Shrink in the browser. A 5MB phone photo becomes ~400KB before it leaves the device.
+  function resize(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, MAX_EDGE / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(b => (b ? resolve(b) : reject(new Error("resize failed"))), "image/jpeg", QUALITY);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("unreadable image")); };
+      img.src = url;
+    });
+  }
+
+  async function uploadPhotos() {
+    const files = Array.from(photoInput.files || []).slice(0, MAX_PHOTOS);
+    if (!files.length) return [];
+
+    photoStatus.textContent = `Preparing ${files.length} photo${files.length > 1 ? "s" : ""}…`;
+    const sig = await fetch("/api/sign-upload", { method: "POST" }).then(r => {
+      if (!r.ok) throw new Error("sign failed");
+      return r.json();
+    });
+
+    const urls = [];
+    for (let i = 0; i < files.length; i++) {
+      photoStatus.textContent = `Uploading photo ${i + 1} of ${files.length}…`;
+      const blob = await resize(files[i]);
+      const fd = new FormData();
+      fd.append("file", blob);
+      fd.append("api_key", sig.apiKey);
+      fd.append("timestamp", sig.timestamp);
+      fd.append("folder", sig.folder);
+      fd.append("signature", sig.signature);
+      const up = await fetch(`https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`, {
+        method: "POST", body: fd
+      });
+      if (!up.ok) throw new Error("upload failed");
+      urls.push((await up.json()).secure_url);
+    }
+    photoStatus.textContent = `${urls.length} photo${urls.length > 1 ? "s" : ""} attached.`;
+    return urls;
+  }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!FORM_ENDPOINT) {
-      status.textContent = "This form isn't connected yet. Please call (937) 726-0254.";
-      return;
-    }
+    const button = form.querySelector("button[type=submit]");
+    button.disabled = true;
     status.textContent = "Sending…";
+
     try {
-      const res = await fetch(FORM_ENDPOINT, {
+      let photos = [];
+      try {
+        photos = await uploadPhotos();
+      } catch {
+        // A failed photo must never cost us the lead.
+        photoStatus.textContent = "Photos didn't upload. Sending the rest — you can email them after.";
+      }
+
+      const payload = Object.fromEntries(new FormData(form));
+      delete payload.photos;
+      payload.photos = photos;
+
+      const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(Object.fromEntries(new FormData(form)))
+        body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error(res.status);
       form.reset();
+      photoStatus.textContent = "";
       status.textContent = "Got it. You'll hear back within two business days.";
     } catch {
       status.textContent = "That didn't send. Please call (937) 726-0254.";
+    } finally {
+      button.disabled = false;
     }
   });
 </script>

@@ -228,6 +228,16 @@ a { color: var(--pine); }
 }
 .field textarea { min-height: 5.5rem; resize: vertical; line-height: 1.55; }
 .field .hint { font-size: .88rem; color: var(--sage); }
+.field input[type="file"] {
+  padding: .7rem .8rem; font-size: .95rem; cursor: pointer;
+  background: rgba(247,244,237,.08); color: #DCD8CE;
+}
+.field input[type="file"]::file-selector-button {
+  font-family: Archivo, sans-serif; font-weight: 600; font-size: .9rem;
+  margin-right: .85rem; padding: .5rem .9rem; cursor: pointer;
+  border: 0; border-radius: 5px; background: #F7F4ED; color: var(--char);
+}
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 .form button { width: 100%; padding: 1.15rem 1.6rem; font-size: 1.12rem; border-radius: 7px; }
 @media (min-width: 640px) { .form button { width: auto; min-width: 16rem; } }
 .form-status { font-weight: 600; margin: .9rem 0 0; color: var(--ivory); }
