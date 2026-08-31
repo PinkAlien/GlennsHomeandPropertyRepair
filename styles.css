@@ -155,6 +155,8 @@ a { color: var(--pine); }
 }
 .job figure { margin: 0; }
 .job img { width: 100%; display: block; object-fit: cover; background: var(--ivory-lo); border-radius: 3px; }
+/* tall shots whose subject sits near the top survive a wide crop this way */
+.job img.crop-top { object-position: center top; }
 .job:nth-child(3n+1) img { aspect-ratio: 3 / 2; }
 .job:nth-child(3n+2) img { aspect-ratio: 4 / 5; }
 .job:nth-child(3n+3) img { aspect-ratio: 16 / 9; }
@@ -188,12 +190,6 @@ a { color: var(--pine); }
   background: var(--ivory-lo); border-radius: 3px;
 }
 .hiring .prose-lg { max-width: 46ch; }
-/* temporary: badge stands in until there's a photo of Jesse.
-   multiply drops the file's white background onto the ivory band. */
-.hiring img.stand-in {
-  object-fit: contain; background: none; padding: 1.5rem;
-  mix-blend-mode: multiply;
-}
 
 /* ---------- where we work ---------- */
 .geo { padding: 5rem 0; }
@@ -205,6 +201,16 @@ a { color: var(--pine); }
   font-weight: 600; color: var(--char); letter-spacing: -0.01em;
 }
 .geo .prose { margin-top: 1.35rem; color: #55595B; }
+/* full-bleed band: a breather between the copy and the dark form */
+.geo { padding-bottom: 0; }
+.geo-photo {
+  width: 100%; display: block; object-fit: cover;
+  object-position: center top;
+  aspect-ratio: 5 / 2; margin-top: 4.5rem;
+}
+@media (max-width: 820px) {
+  .geo-photo { aspect-ratio: 3 / 2; margin-top: 3rem; }
+}
 
 /* ---------- estimate form ---------- */
 .estimate-grid { display: grid; gap: 3rem; margin-top: 2.75rem; }
