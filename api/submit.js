@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 
   const {
     AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE = "Requests",
-    RESEND_API_KEY, NOTIFY_TO, MAIL_FROM
+    RESEND_API_KEY, NOTIFY_TO, MAIL_FROM, ALERT_TO
   } = process.env;
 
   const body = req.body || {};
@@ -95,9 +95,14 @@ export default async function handler(req, res) {
     if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
   };
 
-  // 2. Tell Jesse.
+  // 2. Tell Jesse. This must survive an Airtable failure — the email is the
+  // backstop, so a bad field name can never cost a lead.
   const line = (label, value) => (value ? `${label}: ${value}\n` : "");
   const jesseBody =
+    (airtableOk
+      ? ""
+      : "HEADS UP: this request did NOT save to the project board. " +
+        "Everything you need is below, but you'll have to add it by hand.\n\n") +
     `New estimate request from the website.\n\n` +
     line("Name", data.name) +
     line("Phone", data.phone) +
@@ -110,8 +115,10 @@ export default async function handler(req, res) {
     `\nWhat they need:\n${data.details}\n` +
     (photos.length ? `\nPhotos:\n${photos.join("\n")}\n` : "\nNo photos attached.\n");
 
+  let notifyOk = false;
   try {
-    await sendMail(NOTIFY_TO, `Estimate request — ${data.name}, ${data.city || "no town given"}`, jesseBody, data.email || undefined);
+    await sendMail(NOTIFY_TO, `${airtableOk ? "" : "[NOT SAVED] "}Estimate request — ${data.name}, ${data.city || "no town given"}`, jesseBody, data.email || undefined);
+    notifyOk = true;
   } catch (e) {
     errors.push(`notify:${e.message}`);
   }
@@ -138,9 +145,29 @@ export default async function handler(req, res) {
     }
   }
 
-  if (errors.length) console.error("submit errors:", errors.join(" | "));
+  // 4. If anything went wrong, say so somewhere a person will actually look.
+  // Vercel logs are where failures go to be ignored.
+  if (errors.length) {
+    console.error("submit errors:", errors.join(" | "));
+    const alertTo = ALERT_TO || String(NOTIFY_TO || "").split(",")[0].trim();
+    try {
+      await sendMail(
+        alertTo,
+        `Intake problem — ${data.name || "unknown"}`,
+        `Something failed while handling a website estimate request.\n\n` +
+          `Saved to Airtable: ${airtableOk ? "yes" : "NO"}\n` +
+          `Emailed Jesse: ${notifyOk ? "yes" : "NO"}\n\n` +
+          `Errors:\n${errors.join("\n")}\n\n` +
+          `Full submission, so nothing is lost:\n` +
+          JSON.stringify({ ...data, photos }, null, 2)
+      );
+    } catch (e) {
+      console.error("alert failed:", e.message);
+    }
+  }
 
-  // Succeed for the customer if the record was saved. Email failures are ours to chase, not theirs.
-  if (airtableOk) return res.status(200).json({ ok: true });
+  // The customer sees success if the request reached Jesse by either route.
+  // Only a total failure justifies telling them to call instead.
+  if (airtableOk || notifyOk) return res.status(200).json({ ok: true });
   return res.status(500).json({ error: "Could not save request" });
 }

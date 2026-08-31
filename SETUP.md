@@ -65,6 +65,10 @@ MAIL_FROM                 Glenn's Home & Property Repair <jesse@send.glennshomea
 NOTIFY_TO                 glennhomeimprovement@gmail.com,you@example.com
 CRON_SECRET               any long random string you make up
 PHOTO_RETENTION_DAYS      90
+ALERT_TO                  optional — where failure alerts go. Defaults to the
+                          first NOTIFY_TO address. Set this to your own address
+                          once Jesse is on NOTIFY_TO, so he isn't the one
+                          receiving error reports.
 ```
 
 `NOTIFY_TO` takes a comma-separated list. Jesse's address goes first — it's the
