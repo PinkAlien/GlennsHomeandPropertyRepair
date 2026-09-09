@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://www.glennshomeandpropertyrepair.com/sitemap.xml
