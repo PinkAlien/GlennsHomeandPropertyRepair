@@ -4,8 +4,13 @@ const RESEND_API = "https://api.resend.com/emails";
 
 const FIELDS = [
   "name", "phone", "email", "preferred_contact",
-  "city", "job_type", "timeline", "budget", "details"
+  "city", "job_type", "timeline", "budget", "details",
+  "material_tier", "square_footage"
 ];
+
+// Square footage is only asked for these jobs. Anything else arriving with a
+// size is a stale value or a bot, and is dropped.
+const SIZE_JOBS = ["Roofing", "Siding", "Flooring", "Deck fence or ramp"];
 
 const clean = (v, max = 2000) =>
   typeof v === "string" ? v.trim().slice(0, max) : "";
@@ -23,6 +28,7 @@ export default async function handler(req, res) {
   const body = req.body || {};
   const data = {};
   for (const f of FIELDS) data[f] = clean(body[f]);
+  if (!SIZE_JOBS.includes(data.job_type)) data.square_footage = "";
 
   // Honeypot: real people leave this empty. Bots fill it.
   if (clean(body.website)) return res.status(200).json({ ok: true });
@@ -59,7 +65,10 @@ export default async function handler(req, res) {
           "Job Type": data.job_type,
           Timeline: data.timeline,
           Budget: data.budget,
+          "Material tier": data.material_tier,
+          "Square footage": data.square_footage,
           Details: data.details,
+          Source: "Website form",
           Photos: photos.map(url => ({ url })),
           Stage: "Lead",
           "Received At": new Date().toISOString()
@@ -112,6 +121,8 @@ export default async function handler(req, res) {
     line("Job", data.job_type) +
     line("Timeline", data.timeline) +
     line("Budget", data.budget) +
+    line("Materials", data.material_tier) +
+    line("Size", data.square_footage ? `${data.square_footage} sq ft` : "") +
     `\nWhat they need:\n${data.details}\n` +
     (photos.length ? `\nPhotos:\n${photos.join("\n")}\n` : "\nNo photos attached.\n");
 

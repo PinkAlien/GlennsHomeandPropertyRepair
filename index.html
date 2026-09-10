@@ -259,6 +259,31 @@
         </div>
       </div>
 
+      <div class="pair">
+        <div class="field">
+          <label for="material_tier">Materials you have in mind</label>
+          <select id="material_tier" name="material_tier">
+            <option>Not sure yet</option>
+            <option>Basic</option>
+            <option>Middle of the road</option>
+            <option>Premium</option>
+          </select>
+          <span class="hint">A rough idea is fine. It moves the number more than anything else.</span>
+        </div>
+        <div class="field" id="sqft-field" hidden>
+          <label for="square_footage">About how big is the area?</label>
+          <select id="square_footage" name="square_footage">
+            <option value="Not sure">Not sure</option>
+            <option value="Under 500">Under 500 sq ft</option>
+            <option value="500 to 1,000">500 to 1,000 sq ft</option>
+            <option value="1,000 to 2,000">1,000 to 2,000 sq ft</option>
+            <option value="2,000 to 3,000">2,000 to 3,000 sq ft</option>
+            <option value="Over 3,000">Over 3,000 sq ft</option>
+          </select>
+          <span class="hint">A guess is fine. Nobody expects you to measure.</span>
+        </div>
+      </div>
+
       <div class="field">
         <label for="details">What needs doing</label>
         <textarea id="details" name="details" required></textarea>
@@ -321,6 +346,15 @@
   const status = document.getElementById("form-status");
   const photoInput = document.getElementById("photos");
   const photoStatus = document.getElementById("photo-status");
+
+  // Square footage only means something for these. Hidden for the rest, and
+  // not sent, so the board never shows a size for a bathroom.
+  const SIZE_JOBS = ["Roofing", "Siding", "Flooring", "Deck fence or ramp"];
+  const jobType = document.getElementById("type");
+  const sqftField = document.getElementById("sqft-field");
+  const syncSqft = () => { sqftField.hidden = !SIZE_JOBS.includes(jobType.value); };
+  jobType.addEventListener("change", syncSqft);
+  syncSqft();
 
   const MAX_PHOTOS = 4;
   const MAX_EDGE = 1600;   // px on the long edge after resize
@@ -401,6 +435,7 @@
       const payload = Object.fromEntries(new FormData(form));
       delete payload.photos;
       payload.photos = photos;
+      if (sqftField.hidden) delete payload.square_footage;
 
       const res = await fetch("/api/submit", {
         method: "POST",
@@ -409,6 +444,7 @@
       });
       if (!res.ok) throw new Error(res.status);
       form.reset();
+      syncSqft();
       photoStatus.textContent = "";
       status.textContent = "Got it. You'll hear back within two business days.";
     } catch {
