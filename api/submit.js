@@ -4,8 +4,13 @@ const RESEND_API = "https://api.resend.com/emails";
 
 const FIELDS = [
   "name", "phone", "email", "preferred_contact",
-  "city", "job_type", "timeline", "budget", "details"
+  "city", "job_type", "timeline", "budget", "details",
+  "material_tier", "square_footage"
 ];
+
+// Square footage is only asked for these jobs. Anything else arriving with a
+// size is a stale value or a bot, and is dropped.
+const SIZE_JOBS = ["Roofing", "Siding", "Flooring", "Deck fence or ramp"];
 
 const clean = (v, max = 2000) =>
   typeof v === "string" ? v.trim().slice(0, max) : "";
@@ -13,6 +18,11 @@ const clean = (v, max = 2000) =>
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+  // Branch previews may inherit production credentials. Never create real
+  // requests or send customer messages while reviewing a preview.
+  if (process.env.VERCEL_ENV === "preview") {
+    return res.status(503).json({ error: "Preview only. Please use the live website to request an estimate." });
   }
 
   const {
@@ -23,12 +33,16 @@ export default async function handler(req, res) {
   const body = req.body || {};
   const data = {};
   for (const f of FIELDS) data[f] = clean(body[f]);
+  if (!SIZE_JOBS.includes(data.job_type)) data.square_footage = "";
 
   // Honeypot: real people leave this empty. Bots fill it.
   if (clean(body.website)) return res.status(200).json({ ok: true });
 
   if (!data.name || !data.phone || !data.details) {
     return res.status(400).json({ error: "Missing required fields" });
+  }
+  if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+    return res.status(400).json({ error: "Please check your email address." });
   }
 
   const photos = Array.isArray(body.photos)
@@ -42,6 +56,7 @@ export default async function handler(req, res) {
   try {
     const r = await fetch(`${AIRTABLE_API}/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TABLE)}`, {
       method: "POST",
+      signal: AbortSignal.timeout(8000),
       headers: {
         Authorization: `Bearer ${AIRTABLE_TOKEN}`,
         "Content-Type": "application/json"
@@ -59,7 +74,10 @@ export default async function handler(req, res) {
           "Job Type": data.job_type,
           Timeline: data.timeline,
           Budget: data.budget,
+          "Material tier": data.material_tier,
+          "Square footage": data.square_footage,
           Details: data.details,
+          Source: "Website form",
           Photos: photos.map(url => ({ url })),
           Stage: "Lead",
           "Received At": new Date().toISOString()
@@ -80,6 +98,7 @@ export default async function handler(req, res) {
     if (!recipients.length) throw new Error("no recipient");
     const r = await fetch(RESEND_API, {
       method: "POST",
+      signal: AbortSignal.timeout(8000),
       headers: {
         Authorization: `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json"
@@ -112,6 +131,8 @@ export default async function handler(req, res) {
     line("Job", data.job_type) +
     line("Timeline", data.timeline) +
     line("Budget", data.budget) +
+    line("Materials", data.material_tier) +
+    line("Size", data.square_footage === "Not sure" ? "Not sure" : data.square_footage ? `${data.square_footage} sq ft` : "") +
     `\nWhat they need:\n${data.details}\n` +
     (photos.length ? `\nPhotos:\n${photos.join("\n")}\n` : "\nNo photos attached.\n");
 
@@ -123,17 +144,19 @@ export default async function handler(req, res) {
     errors.push(`notify:${e.message}`);
   }
 
-  // 3. Reply to the customer. Nothing here promises work that hasn't happened.
-  if (data.email) {
+  // 3. Acknowledge only after at least one durable receipt path succeeds.
+  // An alert to the operator is not a substitute for delivery to Jesse.
+  if (data.email && (airtableOk || notifyOk)) {
     const reply =
       `${data.name.split(" ")[0]},\n\n` +
       `Thanks for reaching out. I have your request for ${data.job_type ? data.job_type.toLowerCase() : "the work"}` +
       `${data.city ? ` in ${data.city}` : ""}, and it's on my list.\n\n` +
-      `I'm usually on a jobsite during the day, so estimates aren't always same-day. You'll hear back from me ` +
-      `within two business days. If it's urgent, call me at (937) 726-0254.\n\n` +
+      `I'm usually on a jobsite during the day. I usually respond within two business days. ` +
+      `The finished written quote comes after a site visit, with its own agreed due date. ` +
+      `If it's urgent, call me at (937) 726-0254.\n\n` +
       (photos.length
         ? `I've got the ${photos.length === 1 ? "photo" : `${photos.length} photos`} you sent — that helps.\n\n`
-        : `If you can send photos of the area, reply to this email with them. It usually saves a trip.\n\n`) +
+        : `If you can send photos of the area, reply to this email with them. They help me prepare for the site visit.\n\n`) +
       `Jesse Glenn\nGlenn's Home & Property Repair LLC\nPiqua, Ohio\n(937) 726-0254`;
 
     try {
@@ -169,5 +192,5 @@ export default async function handler(req, res) {
   // The customer sees success if the request reached Jesse by either route.
   // Only a total failure justifies telling them to call instead.
   if (airtableOk || notifyOk) return res.status(200).json({ ok: true });
-  return res.status(500).json({ error: "Could not save request" });
+  return res.status(500).json({ error: "Your request could not be received. Please call (937) 726-0254." });
 }

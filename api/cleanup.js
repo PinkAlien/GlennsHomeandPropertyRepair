@@ -13,16 +13,29 @@ export default async function handler(req, res) {
     PHOTO_RETENTION_DAYS = "90"
   } = process.env;
 
-  // Vercel Cron sends this header automatically when CRON_SECRET is set.
-  if (CRON_SECRET && req.headers.authorization !== `Bearer ${CRON_SECRET}`) {
+  if (process.env.VERCEL_ENV === "preview") {
+    return res.status(503).json({ error: "Cleanup is disabled on previews" });
+  }
+  // Fail closed: a missing secret must never make photo deletion public.
+  if (!CRON_SECRET) {
+    return res.status(503).json({ error: "Cleanup is not configured" });
+  }
+  if (req.headers.authorization !== `Bearer ${CRON_SECRET}`) {
     return res.status(401).json({ error: "Unauthorized" });
+  }
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+  const retentionDays = Number(PHOTO_RETENTION_DAYS);
+  if (!Number.isInteger(retentionDays) || retentionDays < 1) {
+    return res.status(503).json({ error: "Invalid photo retention period" });
   }
   if (!cloud || !key || !secret) {
     return res.status(500).json({ error: "Cloudinary not configured" });
   }
 
   const auth = "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
-  const cutoff = new Date(Date.now() - Number(PHOTO_RETENTION_DAYS) * 86400000)
+  const cutoff = new Date(Date.now() - retentionDays * 86400000)
     .toISOString()
     .slice(0, 10);
 

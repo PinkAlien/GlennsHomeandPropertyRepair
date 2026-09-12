@@ -15,6 +15,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
@@ -191,6 +192,15 @@ a { color: var(--pine); }
 }
 .hiring .prose-lg { max-width: 46ch; }
 
+/* ---------- the quote and work process ---------- */
+.process-steps { display: grid; gap: 2rem; padding-left: 1.5rem; margin: 3rem 0; }
+.process-steps li { padding-left: .5rem; }
+.process-steps li::marker { color: var(--pine); font-weight: 700; }
+.process-steps .prose { margin-top: .8rem; margin-bottom: 0; }
+.materials-note { border-top: 1px solid rgba(32,34,35,.16); padding-top: 2rem; }
+.materials-note .prose { margin-top: 1rem; margin-bottom: 0; }
+@media (min-width: 820px) { .process-steps { grid-template-columns: 1fr 1fr; gap: 2.5rem 3rem; } }
+
 /* ---------- where we work ---------- */
 .geo { padding: 5rem 0; }
 .geo .wrap { border-top: 1px solid rgba(32,34,35,.16); padding-top: 4rem; }
@@ -218,6 +228,7 @@ a { color: var(--pine); }
   .estimate-grid { grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); gap: 5rem; }
 }
 .form { display: grid; gap: 1.4rem; }
+.pair { display: grid; gap: 1.4rem; }
 @media (min-width: 640px) { .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; } }
 .field { display: grid; gap: .5rem; }
 .field label { font-size: .9rem; font-weight: 600; color: #C3CCC4; }
@@ -254,6 +265,7 @@ a { color: var(--pine); }
 @media (min-width: 900px) { .aside { padding-top: .5rem; border-top: 2px solid rgba(242,237,227,.18); } }
 .aside h3 { font-size: 1.15rem; margin-top: 1.25rem; }
 .aside .prose { font-size: 1rem; margin-top: .5rem; }
+.aside .prose a { color: var(--ivory); overflow-wrap: anywhere; }
 .aside .bignum {
   display: inline-block; margin-top: .3rem; font-size: 1.6rem; font-weight: 700;
   letter-spacing: -0.02em; color: var(--ivory); text-decoration: none;

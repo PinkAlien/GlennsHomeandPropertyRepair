@@ -30,16 +30,20 @@ apart.
 
 ## 3. Airtable
 
-Create a base with a table named `Requests` and these fields, spelled exactly:
+The existing base has a table named `Requests`. Reuse it. Core website intake
+fields are listed below, spelled exactly; workflow fields are managed separately.
 
 | Field | Type |
 |---|---|
 | Name | Single line text |
 | Phone | Phone |
 | Email | Email |
-| Preferred Contact | Single select — Call me / Text me / Email me |
+| Preferred Contact | Single select — Call me / Email me (retain any historical Text me values) |
 | Town | Single line text |
-| Job Type | Single select — Roofing, Siding, Addition or outbuilding, Deck fence or ramp, Kitchen, Bathroom, Flooring, Something else |
+| Job Type | Single select — Roofing, Siding, Addition or outbuilding, Deck fence or ramp, Kitchen, Bathroom, Flooring, Painting, Something else |
+| Material tier | Single select — Not sure yet, Basic, Middle of the road, Premium |
+| Square footage | Single select — Not sure, Under 500, 500 to 1,000, 1,000 to 2,000, 2,000 to 3,000, Over 3,000 |
+| Source | Single select — Website form (retain other existing sources) |
 | Timeline | Single select — As soon as possible / Within a month / Within three months / Still planning |
 | Budget | Single select — the five ranges on the form |
 | Details | Long text |
@@ -85,7 +89,15 @@ Submit the form once with a real email, two photos, and a fake name. Check:
 a row lands in Airtable with the photos attached, Jesse's inbox gets the
 notification, and the auto-reply arrives without going to spam.
 
-`noindex` stays in `index.html` until Jesse has approved the site.
+The production site is approved for indexing. Branch previews are for review:
+their API routes refuse real intake, upload signing, and cleanup. Run `npm test`
+and the simulated local browser flow before considering a controlled production
+test. Coordinate the recipient and test record before exercising live email.
+
+A receipt acknowledgement requires a saved Airtable record or successful
+notification to Jesse. Failure of the customer email alone must not invite a
+duplicate submission. The two-business-day wording describes the usual initial
+response, not a deadline for the finished quote.
 
 ## 6. Photo retention
 
@@ -105,3 +117,7 @@ Two things this does not do, on purpose:
 
 Set `PHOTO_RETENTION_DAYS` to a large number to effectively disable it. There
 is no undo — deleted is deleted.
+
+Cleanup rejects requests when `CRON_SECRET` is missing, when authorization does
+not match, or when retention is not a positive whole number of days. Do not run
+cleanup manually as an access check.
