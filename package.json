@@ -1,0 +1,10 @@
+{
+  "name": "glenns-home-and-property-repair",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "dev": "node scripts/dev-server.mjs"
+  },
+  "engines": { "node": "24.x" }
+}
